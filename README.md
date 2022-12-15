@@ -1,1 +1,1 @@
-# study for skillbox Go modules
+# study for Go modules
