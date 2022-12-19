@@ -6,59 +6,62 @@ import (
 	"math"
 	"os"
 	"strconv"
-	"sync"
 )
 
 func main() {
-	askNum()
-	fmt.Println("Программа завершена.")
-}
 
-func askNum() {
-	fmt.Print("Ввод: ")
-	scanner := bufio.NewScanner(os.Stdin)
-	var wg sync.WaitGroup
-
-	for scanner.Scan() {
+	for {
+		fmt.Print("Ввод: ")
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Scan()
 		input := scanner.Text()
+
 		if input == "стоп" {
 			break
 		}
-		if num, err := strconv.Atoi(input); err != nil {
-			fc := getNum(num)
-			wg.Add(1)
-			sc := squareNum(fc, &wg)
-			wg.Add(1)
-			multiplyByTwo(sc, &wg)
+
+		num, err := strconv.Atoi(input)
+		if err == nil {
+			firstChan := generateChan(num)
+			secondChan := squareNum(firstChan)
+			thirdChan := multiplyByTwo(secondChan)
+			fmt.Println("Произведение:", <-thirdChan)
 		}
 	}
 
-	wg.Wait()
+	fmt.Println("Программа завершена.")
 }
 
-func getNum(num int) chan int {
-	firstChan := make(chan int)
-	firstChan <- num
-	return firstChan
-}
-
-func squareNum(squareChan chan int, wg *sync.WaitGroup) chan int {
-	defer wg.Done()
-	secondChan := make(chan int)
+func generateChan(num int) <-chan int {
+	out := make(chan int)
 	go func() {
-		num := <-squareChan
-		result := int(math.Sqrt(float64(num)))
-		fmt.Println("Квадрат:", result)
-		secondChan <- result
+		out <- num
+		close(out)
 	}()
-	return secondChan
+	return out
 }
 
-func multiplyByTwo(multiplyChan chan int, wg *sync.WaitGroup) {
-	defer wg.Done()
+func squareNum(in <-chan int) <-chan int {
+	out := make(chan int)
 	go func() {
-		num := <-multiplyChan
-		result := num * 2
-		fmt.Println("Произведение:", result)
+		for n := range in {
+			result := int(math.Pow(float64(n), 2))
+			fmt.Println("Квадрат:", result)
+			out <- result
+		}
+		close(out)
 	}()
+	return out
+}
+
+func multiplyByTwo(in <-chan int) <-chan int {
+	out := make(chan int)
+	go func() {
+		for n := range in {
+			result := 2 * n
+			out <- result
+		}
+		close(out)
+	}()
+	return out
 }
