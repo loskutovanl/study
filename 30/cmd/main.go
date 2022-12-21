@@ -6,29 +6,50 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+
+	"github.com/go-chi/chi/v5"
 )
 
-type service struct {
+type Service struct {
 	storage map[int]*User
 }
 
-func (s *service) getNextId() int {
+func NewService() *Service {
+	return &Service{
+		make(map[int]*User),
+	}
+}
+
+func (s *Service) getNextId() int {
 	return len(s.storage) + 1
+}
+
+func (s *Service) getUserById() *User {
+	# TODO
 }
 
 type User struct {
 	ID      int     `json:"id"`
 	Name    string  `json:"name"`
-	Age     int     `json:"age"`
+	Age     string     `json:"age"`
 	Friends []*User `json:"friends"`
 }
 
-func main() {
-	mux := http.NewServeMux()
-	srv := service{make(map[int]*User)}
-	mux.HandleFunc("/create", srv.Create)
+type Friends struct {
+	SourceId string `json:"source_id"`
+	TargetId string `json:"target_id"`
+}
 
-	err := http.ListenAndServe("localhost:8080", mux)
+func main() {
+	srv := NewService()
+
+	r := chi.NewRouter()
+	//r.Use(middleware.Logger)
+
+	r.Post("/create", srv.createHandler)
+	r.Post("/make_friends", srv.makeFriendsHandler)
+
+	err := http.ListenAndServe("localhost:8080", r)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -36,12 +57,12 @@ func main() {
 
 }
 
-func (s *service) Create(rw http.ResponseWriter, r *http.Request) {
+func (s *Service) createHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		content, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			_, err := rw.Write([]byte(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err := w.Write([]byte(err.Error()))
 			if err != nil {
 				return
 			}
@@ -50,23 +71,51 @@ func (s *service) Create(rw http.ResponseWriter, r *http.Request) {
 
 		var u *User
 		if err = json.Unmarshal(content, &u); err != nil {
-			rw.WriteHeader(http.StatusInternalServerError)
-			_, err := rw.Write([]byte(err.Error()))
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err := w.Write([]byte(err.Error()))
 			if err != nil {
 				return
 			}
 			return
 		}
+
 		u.ID = s.getNextId()
 		s.storage[u.ID] = u
 
-		rw.WriteHeader(http.StatusCreated)
-		_, err = rw.Write([]byte(strconv.Itoa(u.ID)))
+		w.WriteHeader(http.StatusCreated)
+		_, err = w.Write([]byte(strconv.Itoa(u.ID)))
 		if err != nil {
 			return
 		}
 		return
 	}
 
-	rw.WriteHeader(http.StatusBadRequest)
+	w.WriteHeader(http.StatusBadRequest)
+}
+
+
+func (s *Service) makeFriendsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		content, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(err.Error()))
+			if err != nil {
+				return
+			}
+			return
+		}
+
+		var f *Friends
+		if err = json.Unmarshal(content, &f); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+
+		sourceId, _ := strconv.Atoi(f.SourceId)
+		targetId, _ := strconv.Atoi(f.TargetId)
+		userSource :=
+
+	}
+
+	w.WriteHeader(http.StatusBadRequest)
 }
