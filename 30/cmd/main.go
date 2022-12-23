@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/lib/pq"
@@ -45,6 +46,11 @@ type DeleteUser struct {
 	TargetId string `json:"target_id"`
 }
 
+// NewAge содержит инормацию о новом возрасте пользователя
+type NewAge struct {
+	Age string `json:"new_age"`
+}
+
 func main() {
 	// подключение, открытие и отложенное закрытие базы данных
 	psqlconn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
@@ -64,7 +70,8 @@ func main() {
 	r.Post("/create", func(w http.ResponseWriter, r *http.Request) { CreateHandler(w, r, db) })
 	r.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { MakeFriendsHandler(w, r, db) })
 	r.Delete("/user", func(w http.ResponseWriter, r *http.Request) { DeleteHandler(w, r, db) })
-	r.Get("/friends/1", func(w http.ResponseWriter, r *http.Response) { GetAllFriends(w, r, db) })
+	r.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { GetAllFriendsHandler(w, r, db) })
+	r.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { PutUserAgeHandler(w, r, db) })
 
 	err = http.ListenAndServe("localhost:8080", r)
 	if err != nil {
@@ -234,8 +241,126 @@ func DeleteHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func GetAllFriends(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+// GetAllFriendsHandler обрабатывает GET-запрос на получение всех друзей пользователя. Логирует возможные ошибки.
+// При успешном запросе возвращает список друзей пользователя (или сообщение об их отсутствии) и статус 200.
+// При неуспешном запросе возвращает статус 400 (неверный метод) ии 500 (ошибка обработки данных).
+func GetAllFriendsHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	log.Info("Inside GetAllFriendsHandler")
 
+	// чтение запроса, приведение userId к числовому типу и обработка ошибок
+	if r.Method == "GET" {
+		userIdString := chi.URLParam(r, "id")
+		userIdInt, err := strconv.Atoi(userIdString)
+		if err != nil {
+			log.Warnf("Inside GetAllFriendsHandler, unable to convert user_id %s from string to int: %s", userIdString, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// проверка, что пользователь существует в таблице "users"
+		err = CheckUserExistsInUsersTable(db, userIdInt)
+		if err != nil {
+			log.Warnf("Inside GetAllFriendsHandler: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// извлечение друзей пользователя из таблиц "users" и "friends"
+		friends, err := GetFriendsForUser(db, userIdInt)
+		if err != nil {
+			log.Errorf("Inside GetAllFriendsHandler: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// запись сообщения
+		var successMsg string
+		if len(friends) == 0 {
+			successMsg = fmt.Sprintf("У пользователя с user_id=%d нет друзей.", userIdInt)
+		} else {
+			successMsg = fmt.Sprintf("Список друзей пользователя с user_id=%d:\n", userIdInt)
+			successMsg += strings.Join(friends, "\n")
+		}
+
+		// вывод сообщения об успехе в случае отсутствия ошибок
+		log.Infof("Successfully got friends for user with user_id=%d", userIdInt)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(successMsg))
+		return
+	}
+
+	// обработка некорректного метода
+	log.Infof("Inside GetAllFriendsHandler, inappropriate http.Request.Method: GET required, %s received", r.Method)
+	w.WriteHeader(http.StatusBadRequest)
+}
+
+// PutUserAgeHandler обрабатывает PUT-запрос на изменение возраста пользователя. Логирует возможные ошибки.
+// При успешном запросе возвращает соответствующее сообщение и статус 200.
+// При неуспешном запросе возвращает статус 400 (неверный метод) ии 500 (ошибка обработки данных).
+func PutUserAgeHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	log.Info("Inside PutUserAgeHandler")
+
+	// чтение запроса и обработка ошибок
+	if r.Method == "PUT" {
+		content, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Warn("Inside PutUserAgeHandler, unable to read http.Request.Body:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// демаршализация запроса и обработка ошибок
+		var na *NewAge
+		if err = json.Unmarshal(content, &na); err != nil {
+			log.Warn("Inside PutUserAgeHandler, unable to Unmarshal json:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// приведение id пользователя к числовому типу
+		userIdString := chi.URLParam(r, "id")
+		userIdInt, err := strconv.Atoi(userIdString)
+		if err != nil {
+			log.Warnf("Inside PutUserAgeHandler, unable to convert user_id %s from string to int: %s", userIdString, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// проверка, что пользователь существует в таблице "users"
+		err = CheckUserExistsInUsersTable(db, userIdInt)
+		if err != nil {
+			log.Warnf("Inside PutUserAgeHandler: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// обновление возраста пользователя
+		err = UpdateUserAge(db, userIdInt, na.Age)
+		if err != nil {
+			log.Warnf("Inside PutUserAgeHandler: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+
+		// вывод сообщения об успехе в случае отсутствия ошибок
+		successMsg := "Возраст пользователя успешно обновлён"
+		log.Infof("Successfully changed user (user_id=%d) age to %s", userIdInt, na.Age)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(successMsg))
+		return
+	}
+
+	// обработка некорректного метода
+	log.Infof("Inside PutUserAgeHandler, inappropriate http.Request.Method: PUT required, %s received", r.Method)
+	w.WriteHeader(http.StatusBadRequest)
 }
 
 // CheckUserExistsInUsersTable проверяет, содержится ли в таблице "users" пользователь с указанным userId.
@@ -465,6 +590,48 @@ func DeleteFriendsFromFriendsTable(db *sql.DB, userIdString string) error {
 	_, err = db.Exec(query, userIdInt)
 	if err != nil {
 		return fmt.Errorf("unable to delete from friends where user1_id or user2_id equal to %s", userIdString)
+	}
+
+	return nil
+}
+
+// GetFriendsForUser извлекает записи о всех друзьях пользователя с userIdInt из объединения таблиц "friends" и "users".
+// Возвращает ошибку при неуспешном запросе.
+func GetFriendsForUser(db *sql.DB, userIdInt int) ([]string, error) {
+	var (
+		query = `select "name", "age" from "users" inner join "friends" on users.id = friends.user1_id where user2_id = $1 union select "name", "age" from "users" inner join "friends" on users.id = friends.user2_id where user1_id = $1`
+		users []string
+		name  string
+		age   int
+	)
+
+	rows, err := db.Query(query, userIdInt)
+	defer rows.Close()
+	if err != nil {
+		return users, fmt.Errorf("unable to perform select query on getting friends for user_id %d: %s", userIdInt, err)
+	}
+
+	for rows.Next() {
+		rows.Scan(&name, &age)
+		users = append(users, strings.Join([]string{name, strconv.Itoa(age)}, " "))
+	}
+
+	return users, nil
+}
+
+// UpdateUserAge меняет возраст пользователя с userId на новое значение newAge.
+// Возвращает ошибку при неуспешном запросе.
+func UpdateUserAge(db *sql.DB, userIdInt int, newAgeString string) error {
+	query := `update "users" set "age" = $1 where "id" = $2`
+
+	newAgeInt, err := strconv.Atoi(newAgeString)
+	if err != nil {
+		return fmt.Errorf("unable to convert age %s from string to int: %s", newAgeString, err)
+	}
+
+	_, err = db.Exec(query, newAgeInt, userIdInt)
+	if err != nil {
+		return fmt.Errorf("unable to update age of user with suer_id=%d: %s", userIdInt, err)
 	}
 
 	return nil
