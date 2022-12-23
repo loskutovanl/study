@@ -21,73 +21,10 @@ const (
 	dbname   = "server"
 )
 
+// настройка логов
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
-}
-
-type Storage struct {
-	repository map[int]*User
-}
-
-func NewStorage() *Storage {
-	return &Storage{
-		make(map[int]*User),
-	}
-}
-
-func (s *Storage) GetNextId() int {
-	return len(s.repository) + 1
-}
-
-func (s *Storage) MakeFriends(sourceId, targetId int) (string, error) {
-	var sourceUser *User
-	var targetUser *User
-
-	for id, user := range s.repository {
-		switch id {
-		case sourceId:
-			sourceUser = user
-		case targetId:
-			targetUser = user
-		}
-	}
-
-	if sourceUser == nil {
-		return "", fmt.Errorf("no *User found with given sourceId %d", sourceId)
-	}
-	if targetUser == nil {
-		return "", fmt.Errorf("no *User found with given targetId %d", targetId)
-	}
-
-	//s.repository[sourceId].Friends = append(s.repository[sourceId].Friends, targetUser)
-	//s.repository[targetId].Friends = append(s.repository[targetId].Friends, sourceUser)
-	return fmt.Sprintf("%s и %s теперь друзья", sourceUser.Name, targetUser.Name), nil
-}
-
-func (s *Storage) DeleteUser(targetId int) (string, error) {
-	var userToDelete *User
-
-	for id, user := range s.repository {
-		if id == targetId {
-			userToDelete = user
-		}
-	}
-
-	if userToDelete == nil {
-		return "", fmt.Errorf("no *User found with given targetId %d", targetId)
-	}
-
-	//for _, friend := range userToDelete.Friends {
-	//	for id, user := range s.repository {
-	//		if user == friend {
-	//			delete(s.repository, id)
-	//			break
-	//		}
-	//	}
-	//}
-	delete(s.repository, targetId)
-	return userToDelete.Name, nil
 }
 
 // User содержит информацию о пользователе: имя, возраст, список друзей
@@ -97,12 +34,13 @@ type User struct {
 	Friends []string `json:"friends"`
 }
 
-// Friends содержит информацию об id двух пользователей, отправивших запрос на дружбу,
+// Friends содержит информацию об id двух пользователей, отправивших запрос на дружбу
 type Friends struct {
 	SourceId string `json:"source_id"`
 	TargetId string `json:"target_id"`
 }
 
+// DeleteUser содержит информацию об id пользователя, на которого запрашивается удаление
 type DeleteUser struct {
 	TargetId string `json:"target_id"`
 }
@@ -121,13 +59,12 @@ func main() {
 		}
 	}()
 
-	storage := NewStorage()
-
 	// создание роутера и регистрация хендлеров
 	r := chi.NewRouter()
 	r.Post("/create", func(w http.ResponseWriter, r *http.Request) { CreateHandler(w, r, db) })
 	r.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { MakeFriendsHandler(w, r, db) })
-	r.Delete("/user", storage.DeleteHandler)
+	r.Delete("/user", func(w http.ResponseWriter, r *http.Request) { DeleteHandler(w, r, db) })
+	r.Get("/friends/", func(w http.ResponseWriter, r *http.Response) { GetAllFriends(w, r, db) })
 
 	err = http.ListenAndServe("localhost:8080", r)
 	if err != nil {
@@ -164,39 +101,28 @@ func CreateHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 			return
 		}
 
-		// приведение типов возраста пользователя, запись имени и возраста пользователя в таблицу "users"
-		age, err := strconv.Atoi(u.Age)
+		// валидация данных пользователя, добавление пользователя в таблицу "users",
+		userId, err := ValidateUserAndCreateUser(db, u)
 		if err != nil {
-			log.Errorf("Unable to convert age %s from string to int type: %s", u.Age, err)
+			log.Errorf("Inside CreateHandler: %s", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
-		lastInsertId := 0
-		err = db.QueryRow("INSERT INTO users (name, age) VALUES($1, $2) RETURNING id", u.Name, age).Scan(&lastInsertId)
-		if err != nil {
-			log.Errorf("Unable to insert user (name %s, age %d) to database table users: %s", u.Name, age, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
-		log.Infof("Successfully added user (id %d) to database", lastInsertId)
+		log.Infof("Successfully created user (user_id %d)", userId)
 
-		// приведение типов друзей пользователя, запись друзей в таблицу "friends"
+		// добавление связи друзей в таблицу "friends
 		for _, friend := range u.Friends {
-			friendId, err := strconv.Atoi(friend)
+			err = MakeFriendsForCreatedUser(db, friend, userId)
 			if err != nil {
-				log.Errorf("Unable to convert friendId %s to int: %s", friend, err)
+				log.Errorf("Inside CreateHandler: %s", err)
+			} else {
+				log.Infof("Successfully added friends relation (user1_id %d, user2_id %s) to database table friends", userId, friend)
 			}
-			_, err = db.Exec(`insert into "friends"("user1_id", "user2_id") values($1, $2)`, lastInsertId, friend)
-			if err != nil {
-				log.Errorf("Unable to insert friends (user1_id %d, user2_id %d) to database table friends: %s", lastInsertId, friendId, err)
-			}
-			log.Infof("Successfully added friends relation (user1_id %d, user2_id %d) to database table friends", lastInsertId, friendId)
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(strconv.Itoa(lastInsertId)))
+		_, _ = w.Write([]byte(strconv.Itoa(userId)))
 		return
 	}
 
@@ -205,7 +131,7 @@ func CreateHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-// MakeFriendsHandler обрабатывает POST-запрос на дружьу двух пользователей.
+// MakeFriendsHandler обрабатывает POST-запрос на дружбу двух пользователей.
 // MakeFriendsHandler принимает три параметра: экземпляры райтера, респонса и базы данных.
 // Обрабатывает ошибки подключения и преобразования данных, демаршаллизирует json-запрос. Добавляет в таблицу
 // "friends" id двух пользователей. Логирует возможные ошибки. При успешном запросе возвращает ID пользователя
@@ -232,55 +158,18 @@ func MakeFriendsHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 			return
 		}
 
-		// приведение типов друзей пользователя
-		sourceId, err := strconv.Atoi(f.SourceId)
+		// обработка и проверка значений пользовательских id
+		err = ValidateUsersIdAndMakeFriends(db, f.SourceId, f.TargetId)
 		if err != nil {
-			log.Warnf("Inside MakeFriendsHandler, unable to convert sourceId %d to int: %s", sourceId, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
-		targetId, err := strconv.Atoi(f.TargetId)
-		if err != nil {
-			log.Warnf("Inside MakeFriendsHandler, unable to convert targetId %d to int: %s", targetId, err)
+			log.Errorf("Inside MakeFriendsHandler: %s", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 
-		// проверка, что указанные id пользователей существуют в таблице "users"
-		rows, err := db.Query(`select "id" from "users" where "id" = $1 or "id" = $2`, sourceId, targetId)
-		defer rows.Close()
-
-		if err != nil {
-			log.Warnf("Inside MakeFrindsHandler, unable to perform select query on users table in database: %s", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
-			return
-		}
-
-		var users []int
-		var iuser int
-		for rows.Next() {
-			rows.Scan(&iuser)
-			users = append(users, iuser)
-		}
-		if len(users) != 2 {
-			log.Warnf("Inside MakeFriendsHandler, unable to find users with targetId %d and/or sourceI %d in users table in database: %s", targetId, sourceId, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		// проверка, что указанные id пользователей еще не являются друзьями
-
-		// запись друзей в таблицу "friends"
-		_, err = db.Exec(`insert into "friends"("user1_id", "user2_id") values($1, $2)`, sourceId, targetId)
-		if err != nil {
-			log.Errorf("Unable to insert friends (user1_id %d, user2_id %d) to database table friends: %s", sourceId, targetId, err)
-		}
-		log.Infof("Successfully added friends relation (user1_id %d, user2_id %d) to database table friends", sourceId, targetId)
-
-		successMsg := fmt.Sprintf("%d и %d теперь друзья", sourceId, targetId)
+		// вывод сообщения об успехе в случае отсутствия ошибок
+		log.Infof("Successfully added friends relation (user1_id %s, user2_id %s) to database table friends", f.SourceId, f.TargetId)
+		successMsg := fmt.Sprintf("%s и %s теперь друзья", f.SourceId, f.TargetId)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(successMsg))
 		return
@@ -291,47 +180,292 @@ func MakeFriendsHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.WriteHeader(http.StatusBadRequest)
 }
 
-func (s *Storage) DeleteHandler(w http.ResponseWriter, r *http.Request) {
+// DeleteHandler обрабатывает DELETE-запрос на удаление пользователя из таблицы "users", а также стирает записи о его
+// друзьях из таблицы "friends". Логирует возможные ошибки. При успешном запросе возвращает имя удаленного пользователя
+// и статус 200. При неуспешном запросе возвращает статус 400 (неверный метод) ии 500 (ошибка обработки данных).
+func DeleteHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	log.Info("Inside DeleteHandler")
+
+	// чтение запроса и обработка ошибок
 	if r.Method == "DELETE" {
 		content, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			log.Warn("Inside DeleteHandler, unable to read http.Request.Body:", err)
 			w.WriteHeader(http.StatusInternalServerError)
-			_, err2 := w.Write([]byte(err.Error()))
-			if err2 != nil {
-				log.Warn("Inside DeleteHandler, unable to write response after reading http.Request.Body:", err2)
-				return
-			}
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 
+		// демаршализация запроса и обработка ошибок
 		var du *DeleteUser
 		if err = json.Unmarshal(content, &du); err != nil {
 			log.Warn("Inside DeleteHandler, unable to Unmarshal json:", err)
 			w.WriteHeader(http.StatusInternalServerError)
-		}
-
-		targetId, err := strconv.Atoi(du.TargetId)
-		if err != nil {
-			log.Warnf("Inside DeleteHandler, unable to convert targetId %d to int: %s", targetId, err)
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 
-		requestStatus, err := s.DeleteUser(targetId)
-		fmt.Println(s.repository)
+		// обработка пользовательского id, удаление пользователя из таблицы "users"
+		deletedUserName, err := DeleteUserFromUserTable(db, du.TargetId)
 		if err != nil {
-			log.Warnf("Inside DeleteHandler, unable delete user %d: %s", targetId, err)
+			log.Errorf("Inside DeleteHandler: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
+			return
+		}
+		log.Infof("Successfully deleted user with id = %s (name %s)", du.TargetId, deletedUserName)
+
+		// удаление записей о друзьях удаленного пользователя
+		err = DeleteFriendsFromFriendsTable(db, du.TargetId)
+		if err != nil {
+			log.Errorf("Inside DeleteHandler: %s", err)
+		} else {
+			log.Infof("Successfully deleted friends record for user with id = %s", du.TargetId)
 		}
 
+		// вывод сообщения об успехе в случае отсутствия ошибок
 		w.WriteHeader(http.StatusOK)
-		_, err = w.Write([]byte(requestStatus))
-		if err != nil {
-			log.Warnf("Inside DeleteHandler, unable to write response afterdeleting user %d: %s", targetId, err)
-		}
+		_, _ = w.Write([]byte(deletedUserName))
 		return
 	}
 
+	// обработка некорректного метода
 	log.Infof("Inside DeleteHandler, inappropriate http.Request.Method: DELETE required, %s received", r.Method)
 	w.WriteHeader(http.StatusBadRequest)
+}
+
+func GetAllFriends(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+
+}
+
+// CheckUserExistsInUsersTable проверяет, содержится ли в таблице "users" пользователь с указанным userId.
+// Если такого пользователя нет или возникает проблема с открытием базы данных, возвращает ошибку.
+func CheckUserExistsInUsersTable(db *sql.DB, userId int) error {
+	var (
+		query   = `select "id" from "users" where "id" = $1`
+		records []int
+		record  int
+	)
+
+	rows, err := db.Query(query, userId)
+	defer rows.Close()
+	if err != nil {
+		return fmt.Errorf("unable to perform select query on users table in database: %w", err)
+	}
+
+	for rows.Next() {
+		rows.Scan(&record)
+		records = append(records, record)
+	}
+	if len(records) == 0 {
+		return fmt.Errorf("unable to find users with userId %d", userId)
+	}
+
+	return nil
+}
+
+// CheckUsersAreNotFriends проверяет, не являются ли пользователи с sourceId и targetId друзьями по таблице "friends".
+// Если пользователи уже являются друзьями или возникает проблема с открытием базы данных, возвращает ошибку.
+func CheckUsersAreNotFriends(db *sql.DB, sourceId, targetId int) error {
+	var (
+		query   = `select "id" from "friends" where ("user1_id" = $1 and "user2_id" = $2) or ("user1_id" = $2 and "user2_id" = $1)`
+		records []int
+		record  int
+	)
+
+	rows, err := db.Query(query, sourceId, targetId)
+	defer rows.Close()
+	if err != nil {
+		return fmt.Errorf("unable to perform select query on friends table in database: %w", err)
+	}
+
+	for rows.Next() {
+		rows.Scan(&record)
+		records = append(records, record)
+	}
+
+	if len(records) != 0 {
+		return fmt.Errorf("users with sourceId %d and targetId %d are already friends", sourceId, targetId)
+	}
+
+	return nil
+}
+
+// InsertUsersIntoFriendsTable делает пользователей с sourceId и targetId друзьями, делая соответствующую запись в таблицу "friends".
+// Если возникает проблема с записью в базу данных, возвращает ошибку.
+func InsertUsersIntoFriendsTable(db *sql.DB, sourceId, targetId int) error {
+	var query = `insert into "friends"("user1_id", "user2_id") values($1, $2)`
+
+	_, err := db.Exec(query, sourceId, targetId)
+	if err != nil {
+		return fmt.Errorf("unable to perform sql insert request for user1_id %d and user2_id %d into table friends", sourceId, targetId)
+	}
+
+	return nil
+}
+
+// ValidateUsersIdAndMakeFriends приводит строковые типы id пользователей sourceIdString и targetIdString к типам int.
+// Проверяет, что пользователи существует в таблице "users". Проверяет, что указаны различные id пользователей.
+// Проверяет, что пользователи с указанными id еще не являются друзьями в таблице "friends". Записывает пользователей
+// в таблицу "friends". Если на любом этапе возникает ошибка, возвращет ее. В случае успеа возвращает nil.
+func ValidateUsersIdAndMakeFriends(db *sql.DB, sourceIdString, targetIdString string) error {
+	var (
+		usersIdString = []string{sourceIdString, targetIdString}
+		usersIdInt    = []int{0, 0}
+		err           error
+	)
+
+	for i, id := range usersIdString {
+		// приведение типов друзей пользователя из string в int
+		usersIdInt[i], err = strconv.Atoi(id)
+		if err != nil {
+			return fmt.Errorf("unable to convert userId %s from string to int: %s", id, err)
+		}
+
+		// проверка, что пользователи существуют в таблице "users"
+		err = CheckUserExistsInUsersTable(db, usersIdInt[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	sourceIdInt := usersIdInt[0]
+	targetIdInt := usersIdInt[1]
+	// проверка, что указаны различные id двух пользователей
+	if sourceIdInt == targetIdInt {
+		return fmt.Errorf("unable to befriend user (userId %d) with himself", sourceIdInt)
+	}
+
+	// проверка, что указанные id пользователей еще не являются друзьями
+	err = CheckUsersAreNotFriends(db, sourceIdInt, targetIdInt)
+	if err != nil {
+		return err
+	}
+
+	// запись друзей в таблицу "friends"
+	err = InsertUsersIntoFriendsTable(db, sourceIdInt, targetIdInt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ValidateUserAndCreateUser создает запись о пользователе в таблицу "users". Переводит возраст пользователя в числовой
+// тип. Возвращает id добавленного в таблицу пользователя и ошибку.
+func ValidateUserAndCreateUser(db *sql.DB, user *User) (int, error) {
+	var (
+		userId int
+		query  = `insert into "users" ("name", "age") values($1, $2) returning "id"`
+	)
+
+	// приведение типов возраста пользователя, запись имени и возраста пользователя в таблицу "users"
+	age, err := strconv.Atoi(user.Age)
+	if err != nil {
+		return userId, fmt.Errorf("unable to convert user age %s from string to int: %s", user.Age, err)
+	}
+
+	// запись пользователя в базу данных в таблицу "users"
+	err = db.QueryRow(query, user.Name, age).Scan(&userId)
+	if err != nil {
+		return userId, fmt.Errorf("unable to insert user (name %s, age %d) to database table users: %s", user.Name, age, err)
+	}
+
+	return userId, nil
+}
+
+// MakeFriendsForCreatedUser создает записи о друзьях нового пользователя с userId в таблицу "friends". Переводит
+// возраст пользователя в числовое значение, проверяет что пользователь с friendId существует в таблице "users".
+// Проверяет, что пользователи с id userId, friendId еще не друзья и добавляет запись о друзьях в базу данных.
+// Возвращает соответствующую ошибку, если на любом этапе что-то идет не так.
+func MakeFriendsForCreatedUser(db *sql.DB, friend string, userId int) error {
+	var (
+		query = `insert into "friends"("user1_id", "user2_id") values($1, $2)`
+	)
+
+	// перевод типа возраста пользователя в числовое значение
+	friendId, err := strconv.Atoi(friend)
+	if err != nil {
+		return fmt.Errorf("unable to convert friendId %s to int: %s", friend, err)
+	}
+
+	// проверка, что пользователь с id friendId существует в таблице пользователей
+	err = CheckUserExistsInUsersTable(db, friendId)
+	if err != nil {
+		return err
+	}
+
+	// проверка, что пользователи с id userId, friendId еще не друзья
+	err = CheckUsersAreNotFriends(db, userId, friendId)
+	if err != nil {
+		return err
+	}
+
+	// добавление записи о друзьях в базу данных
+	_, err = db.Exec(query, userId, friend)
+	if err != nil {
+		return fmt.Errorf("unable to insert friends (user1_id %d, user2_id %d) to database table friends: %s", userId, friendId, err)
+	}
+
+	return nil
+}
+
+// DeleteUserFromUserTable удаляет запис о пользователе из таблицы "users". Переводит id пользователя в числовой формат.
+// Возвращает имя удаленного пользователя (полученное селект-запросом) и соответствующую ошибку, если на любом
+// этапе что-то идет не так.
+func DeleteUserFromUserTable(db *sql.DB, userIdString string) (string, error) {
+	var (
+		deletedUserName string
+		queryDelete     = `delete from "users" where "id" = $1`
+		querySelect     = `select distinct "name" from "users" where "id" = $1`
+	)
+
+	// перевод id пользователя в числовой формат
+	userIdInt, err := strconv.Atoi(userIdString)
+	if err != nil {
+		return deletedUserName, fmt.Errorf("unable to convert targetId %d to int: %s", userIdInt, err)
+	}
+
+	// получение имени удаляемого пользователя с помощью селект-запроса
+	rows, err := db.Query(querySelect, userIdInt)
+	if err != nil {
+		return deletedUserName, fmt.Errorf("unable to get user name for user_id = %d", userIdInt)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&deletedUserName)
+		if err != nil {
+			return deletedUserName, err
+		}
+	}
+
+	// удаление пользователя из таблицы "users"
+	_, err = db.Exec(queryDelete, userIdInt)
+	if err != nil {
+		return deletedUserName, err
+	}
+
+	return deletedUserName, nil
+}
+
+// DeleteFriendsFromFriendsTable удаляет записи о всех друзьях пользователя с userIdString из таблицы "friends".
+// Возвращает ошибку, если что-то идет не так.
+func DeleteFriendsFromFriendsTable(db *sql.DB, userIdString string) error {
+	var (
+		query = `delete from "friends" where "user1_id" = $1 or "user2_id" = $1`
+	)
+
+	// перевод id пользователя в числовой формат
+	userIdInt, err := strconv.Atoi(userIdString)
+	if err != nil {
+		return fmt.Errorf("unable to convert targetId %d to int: %s", userIdInt, err)
+	}
+
+	// удаление записей о друзьях из таблицы "friends"
+	_, err = db.Exec(query, userIdInt)
+	if err != nil {
+		return fmt.Errorf("unable to delete from friends where user1_id or user2_id equal to %s", userIdString)
+	}
+
+	return nil
 }
