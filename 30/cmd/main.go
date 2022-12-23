@@ -64,7 +64,7 @@ func main() {
 	r.Post("/create", func(w http.ResponseWriter, r *http.Request) { CreateHandler(w, r, db) })
 	r.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { MakeFriendsHandler(w, r, db) })
 	r.Delete("/user", func(w http.ResponseWriter, r *http.Request) { DeleteHandler(w, r, db) })
-	r.Get("/friends/", func(w http.ResponseWriter, r *http.Response) { GetAllFriends(w, r, db) })
+	r.Get("/friends/1", func(w http.ResponseWriter, r *http.Response) { GetAllFriends(w, r, db) })
 
 	err = http.ListenAndServe("localhost:8080", r)
 	if err != nil {
