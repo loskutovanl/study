@@ -1,11 +1,10 @@
 package databaseRequests
 
 import (
+	"30/internal/entity"
 	"database/sql"
 	"fmt"
 	"strconv"
-
-	"30/30/pkg/customStructures"
 )
 
 // MakeFriendsForCreatedUser создает записи о друзьях нового пользователя с userId в таблицу "friends". Переводит
@@ -46,7 +45,7 @@ func MakeFriendsForCreatedUser(db *sql.DB, friend string, userId int) error {
 
 // ValidateUserAndCreateUser создает запись о пользователе в таблицу "users". Переводит возраст пользователя в числовой
 // тип. Возвращает id добавленного в таблицу пользователя и ошибку.
-func ValidateUserAndCreateUser(db *sql.DB, user *customStructures.User) (int, error) {
+func ValidateUserAndCreateUser(db *sql.DB, user *entity.User) (int, error) {
 	var (
 		userId int
 		query  = `insert into "users" ("name", "age") values($1, $2) returning "id"`

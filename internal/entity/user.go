@@ -1,4 +1,4 @@
-package customStructures
+package entity
 
 // User содержит информацию о пользователе: имя, возраст, список друзей
 type User struct {

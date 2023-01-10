@@ -1,15 +1,14 @@
 package handlers
 
 import (
+	"30/internal/databaseRequests"
+	"30/internal/entity"
 	"database/sql"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
-
-	"30/30/pkg/customStructures"
-	"30/30/pkg/databaseRequests"
 )
 
 // DeleteHandler обрабатывает DELETE-запрос на удаление пользователя из таблицы "users", а также стирает записи о его
@@ -29,7 +28,7 @@ func DeleteHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		// демаршализация запроса и обработка ошибок
-		var du *customStructures.DeleteUser
+		var du *entity.DeleteUser
 		if err = json.Unmarshal(content, &du); err != nil {
 			log.Warn("Inside DeleteHandler, unable to Unmarshal json:", err)
 			w.WriteHeader(http.StatusInternalServerError)

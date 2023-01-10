@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"30/internal/databaseRequests"
+	"30/internal/entity"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,9 +11,6 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
-
-	"30/30/pkg/customStructures"
-	"30/30/pkg/databaseRequests"
 )
 
 // CreateHandler обрабатывает POST-запрос на добавление нового пользователя в базу данных.
@@ -34,7 +33,7 @@ func CreateHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		// демаршализация запроса и обработка ошибок
-		var u *customStructures.User
+		var u *entity.User
 		if err = json.Unmarshal(content, &u); err != nil {
 			log.Warn("Inside CreateHandler, unable to Unmarshal json:", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -91,7 +90,7 @@ func MakeFriendsHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		// демаршализация запроса и обработка ошибок
-		var f *customStructures.Friends
+		var f *entity.Friends
 		if err = json.Unmarshal(content, &f); err != nil {
 			log.Warn("Inside MakeFriendsHandler, unable to Unmarshal json:", err)
 			w.WriteHeader(http.StatusInternalServerError)

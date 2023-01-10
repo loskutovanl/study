@@ -1,6 +1,8 @@
 package main
 
 import (
+	"30/config"
+	"30/internal/handlers"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -10,9 +12,6 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
-
-	"30/30/pkg/config"
-	"30/30/pkg/handlers"
 )
 
 // настройка логов и загрузка переменных окружения

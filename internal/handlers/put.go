@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"30/internal/databaseRequests"
+	"30/internal/entity"
 	"database/sql"
 	"encoding/json"
 	"io/ioutil"
@@ -9,9 +11,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
-
-	"30/30/pkg/customStructures"
-	"30/30/pkg/databaseRequests"
 )
 
 // PutUserAgeHandler обрабатывает PUT-запрос на изменение возраста пользователя. Логирует возможные ошибки.
@@ -31,7 +30,7 @@ func PutUserAgeHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		// демаршализация запроса и обработка ошибок
-		var na *customStructures.NewAge
+		var na *entity.NewAge
 		if err = json.Unmarshal(content, &na); err != nil {
 			log.Warn("Inside PutUserAgeHandler, unable to Unmarshal json:", err)
 			w.WriteHeader(http.StatusInternalServerError)

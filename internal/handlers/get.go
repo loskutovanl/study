@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"30/internal/databaseRequests"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -9,8 +10,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
-
-	"30/30/pkg/databaseRequests"
 )
 
 // GetAllFriendsHandler обрабатывает GET-запрос на получение всех друзей пользователя. Логирует возможные ошибки.
