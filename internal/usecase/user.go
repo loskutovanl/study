@@ -23,3 +23,11 @@ func (uc *UserUseCase) NewUser(user *entity.User) (int, error) {
 	}
 	return userId, nil
 }
+
+func (uc *UserUseCase) NewUserFriends(friend string, userId int) error {
+	err := uc.r.InsertFriends(friend, userId)
+	if err != nil {
+		return fmt.Errorf("UserUseCase - NewUserFriends - s.r.InsertFriends: %w", err)
+	}
+	return nil
+}

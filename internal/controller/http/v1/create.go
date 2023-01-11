@@ -1,11 +1,8 @@
-package http
+package v1
 
 import (
-	"30/internal/databaseRequests"
 	"30/internal/entity"
-	"30/internal/handlers"
 	"30/internal/usecase"
-	"30/internal/usecase/repo"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
@@ -18,9 +15,9 @@ type userRoutes struct {
 	uc usecase.UserUseCase
 }
 
-func newUserRoutes(mux *chi.Mux, uc usecase.UserUseCase) {
-	route := &userRoutes{uc}
-	mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { handlers.CreateHandler(w, r, db) })
+func NewUserRoutes(mux *chi.Mux, uc *usecase.UserUseCase) {
+	ur := &userRoutes{*uc}
+	mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { ur.createUser(w, r) })
 }
 
 func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
@@ -46,15 +43,8 @@ func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// валидация данных пользователя, добавление пользователя в таблицу "users",
+		userId, err := ur.uc.NewUser(u)
 
-		// Use case
-		userUseCase := usecase.New(
-			repo.NewPostgreSQLClassicRepository(ur.uc.),
-		)
-
-		userId, err := userUseCase.NewUser(u)
-
-		//userId, err := userUsecase.NewUser(u)
 		if err != nil {
 			log.Errorf("Inside CreateHandler: %s", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -65,7 +55,7 @@ func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
 
 		// добавление связи друзей в таблицу "friends
 		for _, friend := range u.Friends {
-			err = databaseRequests.MakeFriendsForCreatedUser(ur.uc.r, friend, userId)
+			err = ur.uc.NewUserFriends(friend, userId)
 			if err != nil {
 				log.Errorf("Inside CreateHandler: %s", err)
 			} else {

@@ -30,7 +30,7 @@ func GetAllFriendsHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		// проверка, что пользователь существует в таблице "users"
-		err = databaseRequests.CheckUserExistsInUsersTable(db, userIdInt)
+		//err = databaseRequests.CheckUserExistsInUsersTable(db, userIdInt)
 		if err != nil {
 			log.Warnf("Inside GetAllFriendsHandler: %s", err)
 			w.WriteHeader(http.StatusInternalServerError)

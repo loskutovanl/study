@@ -22,13 +22,13 @@ func MakeFriendsForCreatedUser(db *sql.DB, friend string, userId int) error {
 	}
 
 	// проверка, что пользователь с id friendId существует в таблице пользователей
-	err = CheckUserExistsInUsersTable(db, friendId)
+	//err = CheckUserExistsInUsersTable(db, friendId)
 	if err != nil {
 		return err
 	}
 
 	// проверка, что пользователи с id userId, friendId еще не друзья
-	err = CheckUsersAreNotFriends(db, userId, friendId)
+	//err = CheckUsersAreNotFriends(db, userId, friendId)
 	if err != nil {
 		return err
 	}

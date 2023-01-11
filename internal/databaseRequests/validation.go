@@ -25,7 +25,7 @@ func ValidateUsersIdAndMakeFriends(db *sql.DB, sourceIdString, targetIdString st
 		}
 
 		// проверка, что пользователи существуют в таблице "users"
-		err = CheckUserExistsInUsersTable(db, usersIdInt[i])
+		//err = CheckUserExistsInUsersTable(db, usersIdInt[i])
 		if err != nil {
 			return err
 		}
@@ -39,7 +39,7 @@ func ValidateUsersIdAndMakeFriends(db *sql.DB, sourceIdString, targetIdString st
 	}
 
 	// проверка, что указанные id пользователей еще не являются друзьями
-	err = CheckUsersAreNotFriends(db, sourceIdInt, targetIdInt)
+	//err = CheckUsersAreNotFriends(db, sourceIdInt, targetIdInt)
 	if err != nil {
 		return err
 	}
