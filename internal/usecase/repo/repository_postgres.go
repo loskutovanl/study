@@ -63,22 +63,73 @@ func (r *PostgreSQLClassicRepository) InsertFriends(friend string, userId int) e
 	}
 
 	// проверка, что пользователь с id friendId существует в таблице пользователей
-	err = CheckUserExistsInUsersTable(db, friendId)
+	_, err = r.SelectUser(friendId)
 	if err != nil {
 		return err
 	}
 
 	// проверка, что пользователи с id userId, friendId еще не друзья
-	err = CheckUsersAreNotFriends(db, userId, friendId)
+	_, err = r.SelectFriends(userId, friendId)
 	if err != nil {
 		return err
 	}
 
 	// добавление записи о друзьях в базу данных
-	_, err = db.Exec(query, userId, friend)
+	_, err = r.db.Exec(query, userId, friend)
 	if err != nil {
 		return fmt.Errorf("unable to insert friends (user1_id %d, user2_id %d) to database table friends: %s", userId, friendId, err)
 	}
 
 	return nil
+}
+
+func (r *PostgreSQLClassicRepository) SelectUser(userId int) ([]int, error) {
+	var (
+		query   = `select "id" from "users" where "id" = $1`
+		records []int
+		record  int
+	)
+
+	rows, err := r.db.Query(query, userId)
+	defer rows.Close()
+	if err != nil {
+		return records, fmt.Errorf("unable to perform select query on users table in database: %w", err)
+	}
+
+	for rows.Next() {
+		rows.Scan(&record)
+		records = append(records, record)
+	}
+	if len(records) == 0 {
+		return records, fmt.Errorf("unable to find users with userId %d", userId)
+	}
+
+	return records, nil
+}
+
+func (r *PostgreSQLClassicRepository) SelectFriends(sourceId, targetId int) ([]int, error) {
+	var (
+		query = `select "id" from "friends" 
+            	where ("user1_id" = $1 and "user2_id" = $2) 
+        		or ("user1_id" = $2 and "user2_id" = $1)`
+		records []int
+		record  int
+	)
+
+	rows, err := r.db.Query(query, sourceId, targetId)
+	defer rows.Close()
+	if err != nil {
+		return records, fmt.Errorf("unable to perform select query on friends table in database: %w", err)
+	}
+
+	for rows.Next() {
+		rows.Scan(&record)
+		records = append(records, record)
+	}
+
+	if len(records) != 0 {
+		return records, fmt.Errorf("users with sourceId %d and targetId %d are already friends", sourceId, targetId)
+	}
+
+	return records, nil
 }

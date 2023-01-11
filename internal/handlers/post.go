@@ -44,8 +44,6 @@ func CreateHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		// валидация данных пользователя, добавление пользователя в таблицу "users",
-		// TODO to delete
-		//userId, err := databaseRequests.ValidateUserAndCreateUser(db, u)
 
 		// Use case
 		userUseCase := usecase.New(

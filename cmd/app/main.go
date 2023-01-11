@@ -3,6 +3,8 @@ package main
 import (
 	"30/config"
 	"30/internal/handlers"
+	"30/internal/usecase"
+	"30/internal/usecase/repo"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -47,15 +49,20 @@ func main() {
 		}
 	}()
 
-	// создание роутера и регистрация хендлеров
-	r := chi.NewRouter()
-	r.Post("/create", func(w http.ResponseWriter, r *http.Request) { handlers.CreateHandler(w, r, db) })
-	r.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { handlers.MakeFriendsHandler(w, r, db) })
-	r.Delete("/user", func(w http.ResponseWriter, r *http.Request) { handlers.DeleteHandler(w, r, db) })
-	r.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.GetAllFriendsHandler(w, r, db) })
-	r.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.PutUserAgeHandler(w, r, db) })
+	// Use case
+	userUseCase := usecase.New(
+		repo.NewPostgreSQLClassicRepository(db),
+	)
 
-	err = http.ListenAndServe("localhost:8080", r)
+	// создание роутера и регистрация хендлеров
+	mux := chi.NewRouter()
+	mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { handlers.CreateHandler(w, r, db) })
+	mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { handlers.MakeFriendsHandler(w, r, db) })
+	mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { handlers.DeleteHandler(w, r, db) })
+	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.GetAllFriendsHandler(w, r, db) })
+	mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.PutUserAgeHandler(w, r, db) })
+
+	err = http.ListenAndServe("localhost:8080", mux)
 	if err != nil {
 		log.Error("Unable to listen and serve:", err)
 		return
