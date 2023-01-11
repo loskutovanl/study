@@ -3,6 +3,8 @@ package handlers
 import (
 	"30/internal/databaseRequests"
 	"30/internal/entity"
+	"30/internal/usecase"
+	"30/internal/usecase/repo"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -42,7 +44,17 @@ func CreateHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		}
 
 		// валидация данных пользователя, добавление пользователя в таблицу "users",
-		userId, err := databaseRequests.ValidateUserAndCreateUser(db, u)
+		// TODO to delete
+		//userId, err := databaseRequests.ValidateUserAndCreateUser(db, u)
+
+		// Use case
+		userUseCase := usecase.New(
+			repo.NewPostgreSQLClassicRepository(db),
+		)
+
+		userId, err := userUseCase.NewUser(u)
+
+		//userId, err := userUsecase.NewUser(u)
 		if err != nil {
 			log.Errorf("Inside CreateHandler: %s", err)
 			w.WriteHeader(http.StatusInternalServerError)

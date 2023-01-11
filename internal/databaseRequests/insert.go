@@ -1,7 +1,6 @@
 package databaseRequests
 
 import (
-	"30/internal/entity"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -41,29 +40,6 @@ func MakeFriendsForCreatedUser(db *sql.DB, friend string, userId int) error {
 	}
 
 	return nil
-}
-
-// ValidateUserAndCreateUser создает запись о пользователе в таблицу "users". Переводит возраст пользователя в числовой
-// тип. Возвращает id добавленного в таблицу пользователя и ошибку.
-func ValidateUserAndCreateUser(db *sql.DB, user *entity.User) (int, error) {
-	var (
-		userId int
-		query  = `insert into "users" ("name", "age") values($1, $2) returning "id"`
-	)
-
-	// приведение типов возраста пользователя, запись имени и возраста пользователя в таблицу "users"
-	age, err := strconv.Atoi(user.Age)
-	if err != nil {
-		return userId, fmt.Errorf("unable to convert user age %s from string to int: %s", user.Age, err)
-	}
-
-	// запись пользователя в базу данных в таблицу "users"
-	err = db.QueryRow(query, user.Name, age).Scan(&userId)
-	if err != nil {
-		return userId, fmt.Errorf("unable to insert user (name %s, age %d) to database table users: %s", user.Name, age, err)
-	}
-
-	return userId, nil
 }
 
 // InsertUsersIntoFriendsTable делает пользователей с sourceId и targetId друзьями, делая соответствующую запись в таблицу "friends".
