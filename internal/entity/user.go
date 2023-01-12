@@ -9,13 +9,13 @@ type User struct {
 
 // Friends содержит информацию об id двух пользователей, отправивших запрос на дружбу
 type Friends struct {
-	SourceId string `json:"source_id"`
-	TargetId string `json:"target_id"`
+	SourceId int `json:"source_id"`
+	TargetId int `json:"target_id"`
 }
 
 // DeleteUser содержит информацию об id пользователя, на которого запрашивается удаление
 type DeleteUser struct {
-	TargetId string `json:"target_id"`
+	TargetId int `json:"target_id"`
 }
 
 // NewAge содержит инормацию о новом возрасте пользователя

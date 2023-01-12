@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 )
 
 type PostgreSQLClassicRepository struct {
@@ -36,7 +35,6 @@ func (r *PostgreSQLClassicRepository) InsertUser(user *entity.User) (int, error)
 		query  = `insert into "users" ("name", "age") values($1, $2) returning "id"`
 	)
 
-	// запись пользователя в базу данных в таблицу "users"
 	err := r.db.QueryRow(query, user.Name, user.Age).Scan(&userId)
 	if err != nil {
 		return userId, fmt.Errorf("unable to insert user (name %s, age %d) to database table users: %s", user.Name, user.Age, err)
@@ -45,19 +43,13 @@ func (r *PostgreSQLClassicRepository) InsertUser(user *entity.User) (int, error)
 	return userId, nil
 }
 
-func (r *PostgreSQLClassicRepository) InsertFriends(friend string, userId int) error {
+func (r *PostgreSQLClassicRepository) InsertFriends(friendId, userId int) error {
 	var (
 		query = `insert into "friends"("user1_id", "user2_id") values($1, $2)`
 	)
 
-	// перевод типа возраста пользователя в числовое значение
-	friendId, err := strconv.Atoi(friend)
-	if err != nil {
-		return fmt.Errorf("unable to convert friendId %s to int: %s", friend, err)
-	}
-
 	// проверка, что пользователь с id friendId существует в таблице пользователей
-	_, err = r.SelectUser(friendId)
+	_, err := r.SelectUser(friendId)
 	if err != nil {
 		return err
 	}
@@ -69,7 +61,7 @@ func (r *PostgreSQLClassicRepository) InsertFriends(friend string, userId int) e
 	}
 
 	// добавление записи о друзьях в базу данных
-	_, err = r.db.Exec(query, userId, friend)
+	_, err = r.db.Exec(query, userId, friendId)
 	if err != nil {
 		return fmt.Errorf("unable to insert friends (user1_id %d, user2_id %d) to database table friends: %s", userId, friendId, err)
 	}
@@ -126,4 +118,45 @@ func (r *PostgreSQLClassicRepository) SelectFriends(sourceId, targetId int) ([]i
 	}
 
 	return records, nil
+}
+
+func (r *PostgreSQLClassicRepository) DeleteUser(user *entity.DeleteUser) error {
+	var queryDelete = `delete from "users" where "id" = $1`
+
+	_, err := r.db.Exec(queryDelete, user.TargetId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *PostgreSQLClassicRepository) DeleteFriends(user *entity.DeleteUser) error {
+	var query = `delete from "friends" where "user1_id" = $1 or "user2_id" = $1`
+
+	_, err := r.db.Exec(query, user.TargetId)
+	if err != nil {
+		return fmt.Errorf("unable to delete from friends where user1_id or user2_id equal to %s", user.TargetId)
+	}
+
+	return nil
+}
+
+func (r *PostgreSQLClassicRepository) SelectUsername(user *entity.DeleteUser) (userName string, err error) {
+	var querySelect = `select distinct "name" from "users" where "id" = $1`
+
+	rows, err := r.db.Query(querySelect, user.TargetId)
+	if err != nil {
+		return userName, fmt.Errorf("unable to get user name for user_id = %d", user.TargetId)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err = rows.Scan(&userName)
+		if err != nil {
+			return userName, err
+		}
+	}
+
+	return userName, nil
 }

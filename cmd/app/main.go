@@ -60,8 +60,8 @@ func main() {
 	v1.NewUserRoutes(mux, userUseCase)
 
 	//mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { handlers.CreateHandler(w, r, db) })
-	mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { handlers.MakeFriendsHandler(w, r, db) })
-	mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { handlers.DeleteHandler(w, r, db) })
+	//mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { handlers.MakeFriendsHandler(w, r, db) })
+	//mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { handlers.DeleteHandler(w, r, db) })
 	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.GetAllFriendsHandler(w, r, db) })
 	mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.PutUserAgeHandler(w, r, db) })
 

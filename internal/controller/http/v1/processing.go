@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +17,17 @@ func ReadHttpRequest(w http.ResponseWriter, r *http.Request, handlerName string)
 		return content, err
 	}
 	return content, nil
+}
+
+// UnmarshalRequest демаршализация запроса и обработка ошибок
+func UnmarshalRequest(w http.ResponseWriter, content []byte, handlerName string, request interface{}) error {
+	if err := json.Unmarshal(content, &request); err != nil {
+		log.Warn("Inside %s, unable to Unmarshal json: %s", handlerName, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(err.Error()))
+		return err
+	}
+	return nil
 }
 
 // ProcessInvalidRequestMethod обработка некорректного метода
