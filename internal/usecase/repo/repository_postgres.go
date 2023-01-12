@@ -36,16 +36,10 @@ func (r *PostgreSQLClassicRepository) InsertUser(user *entity.User) (int, error)
 		query  = `insert into "users" ("name", "age") values($1, $2) returning "id"`
 	)
 
-	// приведение типов возраста пользователя, запись имени и возраста пользователя в таблицу "users"
-	age, err := strconv.Atoi(user.Age)
-	if err != nil {
-		return userId, fmt.Errorf("unable to convert user age %s from string to int: %s", user.Age, err)
-	}
-
 	// запись пользователя в базу данных в таблицу "users"
-	err = r.db.QueryRow(query, user.Name, age).Scan(&userId)
+	err := r.db.QueryRow(query, user.Name, user.Age).Scan(&userId)
 	if err != nil {
-		return userId, fmt.Errorf("unable to insert user (name %s, age %d) to database table users: %s", user.Name, age, err)
+		return userId, fmt.Errorf("unable to insert user (name %s, age %d) to database table users: %s", user.Name, user.Age, err)
 	}
 
 	return userId, nil

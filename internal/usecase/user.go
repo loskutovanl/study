@@ -17,6 +17,7 @@ func New(r repo.Repository) *UserUseCase {
 }
 
 func (uc *UserUseCase) NewUser(user *entity.User) (int, error) {
+
 	userId, err := uc.r.InsertUser(user)
 	if err != nil {
 		return userId, fmt.Errorf("UserUseCase - NewUser - s.r.InsertUser: %w", err)

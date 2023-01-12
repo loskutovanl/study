@@ -3,7 +3,7 @@ package entity
 // User содержит информацию о пользователе: имя, возраст, список друзей
 type User struct {
 	Name    string   `json:"name"`
-	Age     string   `json:"age"`
+	Age     int      `json:"age"`
 	Friends []string `json:"friends"`
 }
 

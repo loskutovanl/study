@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 )
@@ -20,33 +19,47 @@ func NewUserRoutes(mux *chi.Mux, uc *usecase.UserUseCase) {
 	mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { ur.createUser(w, r) })
 }
 
+type userRequest struct {
+	Name    string   `json:"name"`
+	Age     string   `json:"age"`
+	Friends []string `json:"friends"`
+}
+
 func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
-	log.Info("Inside CreateHandler")
+	var handlerName = "createUser"
+	log.Infof("Inside %s", handlerName)
 
 	if r.Method == "POST" {
-		// чтение запроса и обработка ошибок
-		content, err := ioutil.ReadAll(r.Body)
+		content, err := ReadHttpRequest(w, r, handlerName)
 		if err != nil {
-			log.Warn("Inside CreateHandler, unable to read http.Request.Body:", err)
+			return
+		}
+
+		// UnmarshalHttpRequest демаршализация запроса и обработка ошибок
+		var userRequest *userRequest
+		if err = json.Unmarshal(content, &userRequest); err != nil {
+			log.Warn("Inside %s, unable to Unmarshal json: %s", handlerName, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 
-		// демаршализация запроса и обработка ошибок
-		var u *entity.User
-		if err = json.Unmarshal(content, &u); err != nil {
-			log.Warn("Inside CreateHandler, unable to Unmarshal json:", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+		// приведение типов возраста пользователя, запись имени и возраста пользователя в таблицу "users"
+		ageInt, err := strconv.Atoi(userRequest.Age)
+		if err != nil {
+			log.Errorf("unable to convert user age %s from string to int: %s", userRequest.Age, err)
 			return
 		}
 
-		// валидация данных пользователя, добавление пользователя в таблицу "users",
-		userId, err := ur.uc.NewUser(u)
+		// добавление пользователя в таблицу "users",
+		userId, err := ur.uc.NewUser(&entity.User{
+			Name:    userRequest.Name,
+			Age:     ageInt,
+			Friends: userRequest.Friends,
+		})
 
 		if err != nil {
-			log.Errorf("Inside CreateHandler: %s", err)
+			log.Errorf("Inside %s: %s", handlerName, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte(err.Error()))
 			return
@@ -54,7 +67,7 @@ func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
 		log.Infof("Successfully created user (user_id %d)", userId)
 
 		// добавление связи друзей в таблицу "friends
-		for _, friend := range u.Friends {
+		for _, friend := range user.Friends {
 			err = ur.uc.NewUserFriends(friend, userId)
 			if err != nil {
 				log.Errorf("Inside CreateHandler: %s", err)
@@ -68,7 +81,5 @@ func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// обработка некорректного метода
-	log.Infof("Inside CreateHandler, inappropriate http.Request.Method: POST required, %s received", r.Method)
-	w.WriteHeader(http.StatusBadRequest)
+	ProcessInvalidRequestMethod(w, handlerName, "POST", r.Method)
 }
