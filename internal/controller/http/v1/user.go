@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type userRoutes struct {
@@ -19,7 +20,7 @@ func NewUserRoutes(mux *chi.Mux, uc *usecase.UserUseCase) {
 	mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { ur.createUser(w, r) })
 	mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { ur.makeFriends(w, r) })
 	mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { ur.deleteUser(w, r) })
-
+	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.GetFriends(w, r) })
 	mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.updateUserAge(w, r) })
 }
 
@@ -48,25 +49,37 @@ func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// приведение типов возраста пользователя, запись имени и возраста пользователя в таблицу "users"
+		// приведение типов возраста пользователя и списка друзей, запись имени и возраста пользователя в таблицу "users"
 		ageInt, err := strconv.Atoi(request.Age)
 		if err != nil {
 			log.Errorf("unable to convert user age %s from string to int: %s", request.Age, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
+		}
+
+		var (
+			friendsArrayInt []int
+			friendInt       int
+		)
+		for _, friendString := range request.Friends {
+			friendInt, err = strconv.Atoi(friendString)
+			if err != nil {
+				log.Errorf("unable to convert friends (friend_id %s) from string to int: %s", friendString, err)
+				friendsArrayInt = nil
+				break
+			}
+			friendsArrayInt = append(friendsArrayInt, friendInt)
 		}
 
 		// добавление пользователя в таблицу "users"
 		userId, err := ur.uc.NewUser(&entity.User{
 			Name:    request.Name,
 			Age:     ageInt,
-			Friends: request.Friends,
+			Friends: friendsArrayInt,
 		})
 		if err != nil {
 			log.Errorf("Inside %s: %s", handlerName, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
@@ -106,15 +119,13 @@ func (ur *userRoutes) makeFriends(w http.ResponseWriter, r *http.Request) {
 		sourceId, err := strconv.Atoi(request.SourceId)
 		if err != nil {
 			log.Errorf("unable to convert sourceId %s from string to int: %s", request.SourceId, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 		targetId, err := strconv.Atoi(request.TargetId)
 		if err != nil {
 			log.Errorf("unable to convert targetId %s from string to int: %s", request.TargetId, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
@@ -124,8 +135,7 @@ func (ur *userRoutes) makeFriends(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil {
 			log.Errorf("Inside %s: %s", handlerName, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
@@ -166,17 +176,15 @@ func (ur *userRoutes) deleteUser(w http.ResponseWriter, r *http.Request) {
 		targetId, err := strconv.Atoi(request.TargetId)
 		if err != nil {
 			log.Errorf("unable to convert user targetId %s from string to int: %s", request.TargetId, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
 		// обработка пользовательского id, удаление пользователя из таблицы "users" & "friends"
-		deletedUserName, err := ur.uc.DeleteUser(&entity.DeleteUser{TargetId: targetId})
+		deletedUserName, err := ur.uc.DeleteUser(&entity.User{Id: targetId})
 		if err != nil {
 			log.Errorf("Inside %s: %s", handlerName, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
@@ -217,16 +225,14 @@ func (ur *userRoutes) updateUserAge(w http.ResponseWriter, r *http.Request) {
 		userIdInt, err := strconv.Atoi(userIdString)
 		if err != nil {
 			log.Warnf("Inside %s, unable to convert user_id %s from string to int: %s", handlerName, userIdString, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
 		ageInt, err := strconv.Atoi(request.Age)
 		if err != nil {
 			log.Warnf("unable to convert age %s from string to int: %s", request.Age, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
@@ -235,8 +241,7 @@ func (ur *userRoutes) updateUserAge(w http.ResponseWriter, r *http.Request) {
 			Age: ageInt,
 		})
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(err.Error()))
+			ProcessStatusInternalServerError(w, err)
 			return
 		}
 
@@ -245,6 +250,55 @@ func (ur *userRoutes) updateUserAge(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(successMsg))
 		return
+	}
+
+	ProcessInvalidRequestMethod(w, handlerName, methodRequired, r.Method)
+}
+
+func (ur *userRoutes) GetFriends(w http.ResponseWriter, r *http.Request) {
+	var (
+		handlerName    = "GetFriends"
+		methodRequired = "GET"
+	)
+	log.Infof("Inside %s", handlerName)
+
+	if r.Method == methodRequired {
+		// приведение userId к числовому типу и обработка ошибок
+		userIdString := chi.URLParam(r, "id")
+		userIdInt, err := strconv.Atoi(userIdString)
+		if err != nil {
+			log.Warnf("Inside %s, unable to convert user_id %s from string to int: %s", handlerName, userIdString, err)
+			ProcessStatusInternalServerError(w, err)
+			return
+		}
+
+		var friends []entity.User
+		friends, err = ur.uc.GetFriends(&entity.User{
+			Id: userIdInt,
+		})
+		if err != nil {
+			log.Warnf("Inside %s: %s", handlerName, err)
+			ProcessStatusInternalServerError(w, err)
+			return
+		}
+
+		// запись сообщения
+		var successMsg string
+		if len(friends) == 0 {
+			successMsg = fmt.Sprintf("У пользователя с user_id=%d нет друзей.", userIdInt)
+		} else {
+			successMsg = fmt.Sprintf("Список друзей пользователя с user_id=%d:\n", userIdInt)
+			for _, friend := range friends {
+				successMsg += strings.Join([]string{friend.Name}, "\n")
+				successMsg += "\n"
+			}
+		}
+
+		// вывод сообщения об успехе в случае отсутствия ошибок
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(successMsg))
+		return
+
 	}
 
 	ProcessInvalidRequestMethod(w, handlerName, methodRequired, r.Method)

@@ -3,7 +3,6 @@ package main
 import (
 	"30/config"
 	"30/internal/controller/http/v1"
-	"30/internal/handlers"
 	"30/internal/usecase"
 	"30/internal/usecase/repo"
 	"database/sql"
@@ -58,12 +57,6 @@ func main() {
 	// создание роутера и регистрация хендлеров
 	mux := chi.NewRouter()
 	v1.NewUserRoutes(mux, userUseCase)
-
-	//mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { handlers.CreateHandler(w, r, db) })
-	//mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { handlers.MakeFriendsHandler(w, r, db) })
-	//mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { handlers.DeleteHandler(w, r, db) })
-	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.GetAllFriendsHandler(w, r, db) })
-	//mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.PutUserAgeHandler(w, r, db) })
 
 	err = http.ListenAndServe("localhost:8080", mux)
 	if err != nil {

@@ -114,47 +114,46 @@ func (r *PostgreSQLClassicRepository) SelectFriends(sourceId, targetId int) ([]i
 	}
 
 	if len(records) != 0 {
-		return records, fmt.Errorf("users with sourceId %d and targetId %d are already friends", sourceId, targetId)
+		return records, fmt.Errorf("users with sourceId %d and targetId %d are already friends: %w", sourceId, targetId, err)
 	}
 
 	return records, nil
 }
 
-func (r *PostgreSQLClassicRepository) DeleteUser(user *entity.DeleteUser) error {
+func (r *PostgreSQLClassicRepository) DeleteUser(user *entity.User) error {
 	var queryDelete = `delete from "users" where "id" = $1`
 
-	_, err := r.db.Exec(queryDelete, user.TargetId)
+	_, err := r.db.Exec(queryDelete, user.Id)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to delete user (user_id %d): %s", user.Id, err)
 	}
-
 	return nil
 }
 
-func (r *PostgreSQLClassicRepository) DeleteFriends(user *entity.DeleteUser) error {
+func (r *PostgreSQLClassicRepository) DeleteFriends(user *entity.User) error {
 	var query = `delete from "friends" where "user1_id" = $1 or "user2_id" = $1`
 
-	_, err := r.db.Exec(query, user.TargetId)
+	_, err := r.db.Exec(query, user.Id)
 	if err != nil {
-		return fmt.Errorf("unable to delete from friends where user1_id or user2_id equal to %s", user.TargetId)
+		return fmt.Errorf("unable to delete from friends where user1_id or user2_id equal to %d: %s", user.Id, err)
 	}
 
 	return nil
 }
 
-func (r *PostgreSQLClassicRepository) SelectUsername(user *entity.DeleteUser) (userName string, err error) {
+func (r *PostgreSQLClassicRepository) SelectUsername(user *entity.User) (userName string, err error) {
 	var querySelect = `select distinct "name" from "users" where "id" = $1`
 
-	rows, err := r.db.Query(querySelect, user.TargetId)
+	rows, err := r.db.Query(querySelect, user.Id)
 	if err != nil {
-		return userName, fmt.Errorf("unable to get user name for user_id = %d", user.TargetId)
+		return userName, fmt.Errorf("unable to get user name for user_id = %d: %s", user.Id, err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		err = rows.Scan(&userName)
 		if err != nil {
-			return userName, err
+			return userName, fmt.Errorf("unable to scan rows: %s", err)
 		}
 	}
 
@@ -170,4 +169,27 @@ func (r *PostgreSQLClassicRepository) UpdateUserAge(user *entity.NewAge) error {
 	}
 
 	return nil
+}
+
+func (r *PostgreSQLClassicRepository) SelectUserFriends(user *entity.User) (friends []entity.User, err error) {
+	var (
+		query  = `select "name", "age" from "users" inner join "friends" on users.id = friends.user1_id where user2_id = $1 union select "name", "age" from "users" inner join "friends" on users.id = friends.user2_id where user2_id = $1`
+		friend entity.User
+	)
+
+	rows, err := r.db.Query(query, user.Id)
+	defer rows.Close()
+	if err != nil {
+		return friends, fmt.Errorf("unable to perform select query on getting friends for user_id %d: %s", user.Id, err)
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&friend.Name, &friend.Age)
+		if err != nil {
+			return friends, fmt.Errorf("unable to perform rows scan: %s", err)
+		}
+		friends = append(friends, friend)
+	}
+
+	return friends, nil
 }

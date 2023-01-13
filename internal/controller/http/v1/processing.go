@@ -35,3 +35,9 @@ func ProcessInvalidRequestMethod(w http.ResponseWriter, handlerName, methodRequi
 	log.Infof("Inside %s, inappropriate http.Request.Method: %s required, %s received", handlerName, methodRequired, methodReceived)
 	w.WriteHeader(http.StatusBadRequest)
 }
+
+// ProcessStatusInternalServerError обработка внутренней ошибки сервера
+func ProcessStatusInternalServerError(w http.ResponseWriter, err error) {
+	w.WriteHeader(http.StatusInternalServerError)
+	_, _ = w.Write([]byte(err.Error()))
+}

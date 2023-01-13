@@ -5,7 +5,6 @@ import (
 	"30/internal/usecase/repo"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"strconv"
 )
 
 type UserUseCase struct {
@@ -27,16 +26,12 @@ func (uc *UserUseCase) NewUser(user *entity.User) (int, error) {
 	log.Infof("Successfully created user (user_id %d)", userId)
 
 	// добавление связи друзей в таблицу "friends"
-	for _, friend := range user.Friends {
-		friendId, err := strconv.Atoi(friend)
-		if err != nil {
-			log.Errorf("UserUseCase - NewUser - s.r.InsertFriends:unable to convert friendId %s to int: %s", friend, err)
-		}
+	for _, friendId := range user.Friends {
 		err = uc.r.InsertFriends(friendId, userId)
 		if err != nil {
 			log.Errorf("UserUseCase - NewUser - s.r.InsertFriends: %s", err)
 		} else {
-			log.Infof("Successfully added friends relation (user1_id %d, user2_id %s) to database table friends", userId, friend)
+			log.Infof("Successfully added friends relation (user1_id %d, user2_id %s) to database table friends", userId, friendId)
 		}
 	}
 
@@ -90,4 +85,21 @@ func (uc *UserUseCase) UpdateUserAge(user *entity.NewAge) error {
 	log.Infof("Successfully changed user (user_id=%d) age to %d", user.Id, user.Age)
 
 	return nil
+}
+
+func (uc *UserUseCase) GetFriends(user *entity.User) (friends []entity.User, err error) {
+	// проверка, что пользователь существует в таблице "users"
+	_, err = uc.r.SelectUser(user.Id)
+	if err != nil {
+		return friends, fmt.Errorf("UserUseCase - GetFriends - s.r.SelectUser: %s", err)
+	}
+
+	// извлечение друзей пользователя из таблиц "users" и "friends"
+	friends, err = uc.r.SelectUserFriends(user)
+	if err != nil {
+		return friends, fmt.Errorf("UserUseCase - GetFriends - s.r.SelectUserFriends: %s", err)
+	}
+	log.Infof("Successfully got friends for user with user_id=%d", user.Id)
+
+	return friends, nil
 }
