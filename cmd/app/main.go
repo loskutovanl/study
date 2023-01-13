@@ -63,7 +63,7 @@ func main() {
 	//mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { handlers.MakeFriendsHandler(w, r, db) })
 	//mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { handlers.DeleteHandler(w, r, db) })
 	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.GetAllFriendsHandler(w, r, db) })
-	mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.PutUserAgeHandler(w, r, db) })
+	//mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { handlers.PutUserAgeHandler(w, r, db) })
 
 	err = http.ListenAndServe("localhost:8080", mux)
 	if err != nil {

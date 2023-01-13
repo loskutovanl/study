@@ -14,4 +14,5 @@ type Repository interface {
 	DeleteUser(user *entity.DeleteUser) error
 	DeleteFriends(user *entity.DeleteUser) error
 	SelectUsername(user *entity.DeleteUser) (userName string, err error)
+	UpdateUserAge(user *entity.NewAge) error
 }

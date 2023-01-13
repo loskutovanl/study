@@ -160,3 +160,14 @@ func (r *PostgreSQLClassicRepository) SelectUsername(user *entity.DeleteUser) (u
 
 	return userName, nil
 }
+
+func (r *PostgreSQLClassicRepository) UpdateUserAge(user *entity.NewAge) error {
+	var query = `update "users" set "age" = $1 where "id" = $2`
+
+	_, err := r.db.Exec(query, user.Age, user.Id)
+	if err != nil {
+		return fmt.Errorf("unable to update age of user with user_id=%d: %s", user.Id, err)
+	}
+
+	return nil
+}

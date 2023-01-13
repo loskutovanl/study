@@ -20,5 +20,6 @@ type DeleteUser struct {
 
 // NewAge содержит инормацию о новом возрасте пользователя
 type NewAge struct {
-	Age string `json:"new_age"`
+	Id  int
+	Age int `json:"new_age"`
 }

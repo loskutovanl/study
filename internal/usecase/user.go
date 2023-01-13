@@ -74,3 +74,20 @@ func (uc *UserUseCase) DeleteUser(user *entity.DeleteUser) (userName string, err
 
 	return userName, nil
 }
+
+func (uc *UserUseCase) UpdateUserAge(user *entity.NewAge) error {
+	// проверка, что пользователь существует в таблице "users"
+	_, err := uc.r.SelectUser(user.Id)
+	if err != nil {
+		return fmt.Errorf("UserUseCase - UpdateUserAge - s.r.SelectUser: %s", err)
+	}
+
+	// обновление возраста пользователя
+	err = uc.r.UpdateUserAge(user)
+	if err != nil {
+		return fmt.Errorf("UserUseCase - UpdateUserAge - s.r.UpdateUserAge: %s", err)
+	}
+	log.Infof("Successfully changed user (user_id=%d) age to %d", user.Id, user.Age)
+
+	return nil
+}
