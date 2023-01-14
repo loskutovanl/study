@@ -162,10 +162,10 @@ func (r *PostgreSQLClassicRepository) UpdateUserAge(user *entity.NewAge) error {
 
 func (r *PostgreSQLClassicRepository) SelectUserFriends(user *entity.User) (friends []entity.User, err error) {
 	var (
-		query = `select "name", "age" from "users" 
+		query = `select "users"."id", "name", "age" from "users" 
 				inner join "friends" on users.id = friends.user1_id where user1_id = $1 or user2_id = $1 
 				union 
-				select "name", "age" from "users" 
+				select "users"."id", "name", "age" from "users" 
 				inner join "friends" on users.id = friends.user2_id where user1_id = $1 or user2_id = $1`
 		friend entity.User
 	)
@@ -177,7 +177,7 @@ func (r *PostgreSQLClassicRepository) SelectUserFriends(user *entity.User) (frie
 	}
 
 	for rows.Next() {
-		err = rows.Scan(&friend.Name, &friend.Age)
+		err = rows.Scan(&friend.Id, &friend.Name, &friend.Age)
 		if err != nil {
 			return friends, fmt.Errorf("unable to perform rows scan: %s", err)
 		}

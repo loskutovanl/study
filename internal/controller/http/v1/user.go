@@ -3,12 +3,12 @@ package v1
 import (
 	"30/internal/entity"
 	"30/internal/usecase"
+	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type userRoutes struct {
@@ -17,17 +17,21 @@ type userRoutes struct {
 
 func NewUserRoutes(mux *chi.Mux, uc *usecase.UserUseCase) {
 	ur := &userRoutes{*uc}
-	mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { ur.createUser(w, r) })
-	mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { ur.makeFriends(w, r) })
-	mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { ur.deleteUser(w, r) })
-	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.getFriends(w, r) })
-	mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.updateUserAge(w, r) })
+	mux.Post("/users/new", func(w http.ResponseWriter, r *http.Request) { ur.createUser(w, r) })
+	mux.Post("/users/befriend", func(w http.ResponseWriter, r *http.Request) { ur.makeFriends(w, r) })
+	mux.Delete("/users/delete", func(w http.ResponseWriter, r *http.Request) { ur.deleteUser(w, r) })
+	mux.Get("/users/{id:[0-9]+}/friends", func(w http.ResponseWriter, r *http.Request) { ur.getFriends(w, r) })
+	mux.Put("users/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.updateUserAge(w, r) })
 }
 
 type userRequest struct {
 	Name    string   `json:"name"`
 	Age     string   `json:"age"`
 	Friends []string `json:"friends"`
+}
+
+type userResponse struct {
+	Id int `json:"id"`
 }
 
 func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
@@ -83,8 +87,10 @@ func (ur *userRoutes) createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(strconv.Itoa(userId)))
+		data := userResponse{userId}
+		err = json.NewEncoder(w).Encode(data)
 		return
 	}
 
@@ -255,6 +261,16 @@ func (ur *userRoutes) updateUserAge(w http.ResponseWriter, r *http.Request) {
 	ProcessInvalidRequestMethod(w, handlerName, methodRequired, r.Method)
 }
 
+type friendResponse struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+	Age  int    `json:"age"`
+}
+
+type friendsResponse struct {
+	Friend []friendResponse
+}
+
 func (ur *userRoutes) getFriends(w http.ResponseWriter, r *http.Request) {
 	var (
 		handlerName    = "GetFriends"
@@ -282,21 +298,21 @@ func (ur *userRoutes) getFriends(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// запись сообщения
-		var successMsg string
-		if len(friends) == 0 {
-			successMsg = fmt.Sprintf("У пользователя с user_id=%d нет друзей.", userIdInt)
-		} else {
-			successMsg = fmt.Sprintf("Список друзей пользователя с user_id=%d:\n", userIdInt)
+		// запись ответа и вывод
+		data := friendsResponse{}
+		if len(friends) != 0 {
 			for _, friend := range friends {
-				successMsg += strings.Join([]string{friend.Name}, "\n")
-				successMsg += "\n"
+				data.Friend = append(data.Friend, friendResponse{
+					Id:   friend.Id,
+					Age:  friend.Age,
+					Name: friend.Name,
+				})
 			}
 		}
 
-		// вывод сообщения об успехе в случае отсутствия ошибок
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(successMsg))
+		json.NewEncoder(w).Encode(data)
 		return
 
 	}
