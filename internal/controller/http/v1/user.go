@@ -20,7 +20,7 @@ func NewUserRoutes(mux *chi.Mux, uc *usecase.UserUseCase) {
 	mux.Post("/create", func(w http.ResponseWriter, r *http.Request) { ur.createUser(w, r) })
 	mux.Post("/make_friends", func(w http.ResponseWriter, r *http.Request) { ur.makeFriends(w, r) })
 	mux.Delete("/user", func(w http.ResponseWriter, r *http.Request) { ur.deleteUser(w, r) })
-	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.GetFriends(w, r) })
+	mux.Get("/friends/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.getFriends(w, r) })
 	mux.Put("/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.updateUserAge(w, r) })
 }
 
@@ -255,7 +255,7 @@ func (ur *userRoutes) updateUserAge(w http.ResponseWriter, r *http.Request) {
 	ProcessInvalidRequestMethod(w, handlerName, methodRequired, r.Method)
 }
 
-func (ur *userRoutes) GetFriends(w http.ResponseWriter, r *http.Request) {
+func (ur *userRoutes) getFriends(w http.ResponseWriter, r *http.Request) {
 	var (
 		handlerName    = "GetFriends"
 		methodRequired = "GET"

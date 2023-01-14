@@ -29,9 +29,9 @@ func (uc *UserUseCase) NewUser(user *entity.User) (int, error) {
 	for _, friendId := range user.Friends {
 		err = uc.r.InsertFriends(friendId, userId)
 		if err != nil {
-			log.Errorf("UserUseCase - NewUser - s.r.InsertFriends: %s", err)
+			log.Errorf("UserUseCase - NewUser - s.r.InsertFriends: %w", err)
 		} else {
-			log.Infof("Successfully added friends relation (user1_id %d, user2_id %s) to database table friends", userId, friendId)
+			log.Infof("Successfully added friends relation (user1_id %d, user2_id %d) to database table friends", userId, friendId)
 		}
 	}
 
@@ -41,31 +41,32 @@ func (uc *UserUseCase) NewUser(user *entity.User) (int, error) {
 func (uc *UserUseCase) NewFriends(friends *entity.Friends) error {
 	err := uc.r.InsertFriends(friends.SourceId, friends.TargetId)
 	if err != nil {
-		return fmt.Errorf("UserUseCase - NewFriends - s.r.InsertFriends: %s", err)
+		return fmt.Errorf("UserUseCase - NewFriends - s.r.InsertFriends: %w", err)
 	}
 
 	log.Infof("Successfully added friends relation (user1_id %d, user2_id %d) to database table friends", friends.SourceId, friends.TargetId)
 	return nil
 }
 
-func (uc *UserUseCase) DeleteUser(user *entity.DeleteUser) (userName string, err error) {
+func (uc *UserUseCase) DeleteUser(user *entity.User) (userName string, err error) {
 
-	userName, err = uc.r.SelectUsername(user)
+	userFromRepo, err := uc.r.SelectUser(user.Id)
 	if err != nil {
-		return userName, fmt.Errorf("UserUseCase - DeleteUser - s.r.SelectUsername: %s", err)
+		return userName, fmt.Errorf("UserUseCase - DeleteUser - s.r.SelectUsername: %w", err)
 	}
+	userName = userFromRepo.Name
 
 	err = uc.r.DeleteUser(user)
 	if err != nil {
-		return userName, fmt.Errorf("UserUseCase - DeleteUser - s.r.DeleteUser: %s", err)
+		return userName, fmt.Errorf("UserUseCase - DeleteUser - s.r.DeleteUser: %w", err)
 	}
-	log.Infof("Successfully deleted user with id = %d (name %s)", user.TargetId, userName)
+	log.Infof("Successfully deleted user with id = %d (name %s)", user.Id, userName)
 
 	err = uc.r.DeleteFriends(user)
 	if err != nil {
-		return userName, fmt.Errorf("UserUseCase - DeleteUser - s.r.DeleteFriends: %s", err)
+		return userName, fmt.Errorf("UserUseCase - DeleteUser - s.r.DeleteFriends: %w", err)
 	}
-	log.Infof("Successfully deleted friends record for user with id = %d", user.TargetId)
+	log.Infof("Successfully deleted friends record for user with id = %d", user.Id)
 
 	return userName, nil
 }
