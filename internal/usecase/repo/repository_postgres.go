@@ -74,25 +74,12 @@ func (r *PostgreSQLClassicRepository) InsertFriends(friendId, userId int) error 
 
 func (r *PostgreSQLClassicRepository) SelectUser(userId int) (user entity.User, err error) {
 	var (
-		query = `select "name", "age" from "users" where "id" = $1`
-		users []entity.User
+		query = `select "users"."id", "name", "age" from "users" where "id" = $1`
 	)
 
-	rows, err := r.db.Query(query, userId)
-	defer rows.Close()
+	err = r.db.QueryRow(query, userId).Scan(&user.Id, &user.Name, &user.Age)
 	if err != nil {
 		return user, fmt.Errorf("unable to perform select query on users table in database: %w", err)
-	}
-
-	for rows.Next() {
-		err = rows.Scan(&user.Name, &user.Age)
-		if err != nil {
-			fmt.Errorf("unable to perform rows scan: %s", err)
-		}
-		users = append(users, user)
-	}
-	if len(users) == 0 {
-		return user, fmt.Errorf("unable to find user with userId %d", userId)
 	}
 
 	return user, nil

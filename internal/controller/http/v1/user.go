@@ -21,7 +21,7 @@ func NewUserRoutes(mux *chi.Mux, uc *usecase.UserUseCase) {
 	mux.Post("/users/befriend", func(w http.ResponseWriter, r *http.Request) { ur.makeFriends(w, r) })
 	mux.Delete("/users/delete", func(w http.ResponseWriter, r *http.Request) { ur.deleteUser(w, r) })
 	mux.Get("/users/{id:[0-9]+}/friends", func(w http.ResponseWriter, r *http.Request) { ur.getFriends(w, r) })
-	mux.Put("users/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.updateUserAge(w, r) })
+	mux.Put("/users/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) { ur.updateUserAge(w, r) })
 }
 
 type userRequest struct {
