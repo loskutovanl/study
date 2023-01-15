@@ -1,14 +1,14 @@
 package main
 
 import (
-	"30/config"
-	"30/internal/controller/http/v1"
-	"30/internal/usecase"
-	"30/internal/usecase/repo"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
+	"study/config"
+	"study/internal/controller/http/v1"
+	"study/internal/usecase"
+	"study/internal/usecase/repo"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
@@ -42,6 +42,12 @@ func main() {
 	if err != nil {
 		log.Error("Unable to open database:", err)
 	}
+	//driver, err := postgres.WithInstance(db, &postgres.Config{})
+	//m, err := migrate.NewWithDatabaseInstance(
+	//	"file:///migrations",
+	//	"postgres", driver)
+	//m.Up() // or m.Step(2) if you want to explicitly set the number of migrations to run
+
 	defer func() {
 		err = db.Close()
 		if err != nil {

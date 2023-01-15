@@ -1,10 +1,10 @@
 package usecase
 
 import (
-	"30/internal/entity"
-	"30/internal/usecase/repo"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"study/internal/entity"
+	"study/internal/usecase/repo"
 )
 
 type UserUseCase struct {

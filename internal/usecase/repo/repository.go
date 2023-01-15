@@ -1,8 +1,8 @@
 package repo
 
 import (
-	"30/internal/entity"
 	"context"
+	"study/internal/entity"
 )
 
 type Repository interface {

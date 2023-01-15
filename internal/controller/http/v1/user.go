@@ -1,14 +1,14 @@
 package v1
 
 import (
-	"30/internal/entity"
-	"30/internal/usecase"
 	"encoding/json"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
+	"study/internal/entity"
+	"study/internal/usecase"
 )
 
 type userRoutes struct {

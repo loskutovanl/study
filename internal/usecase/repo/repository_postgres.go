@@ -1,10 +1,10 @@
 package repo
 
 import (
-	"30/internal/entity"
 	"context"
 	"database/sql"
 	"fmt"
+	"study/internal/entity"
 )
 
 type PostgreSQLClassicRepository struct {
