@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS users(
+    id SERIAL PRIMARY KEY,
+    name CHAR(100) NOT NULL,
+    age INT NOT NULL
+);

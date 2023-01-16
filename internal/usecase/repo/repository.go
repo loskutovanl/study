@@ -1,12 +1,10 @@
 package repo
 
 import (
-	"context"
 	"study/internal/entity"
 )
 
 type Repository interface {
-	Migrate(ctx context.Context) error
 	InsertUser(user *entity.User) (int, error)
 	InsertFriends(friendId, userId int) error
 	SelectUser(userId int) (entity.User, error)
