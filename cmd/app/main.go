@@ -11,8 +11,9 @@ import (
 	"study/internal/usecase/repo"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/golang-migrate/migrate"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/jackc/pgx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
@@ -27,10 +28,6 @@ func init() {
 		os.Exit(1)
 	}
 }
-
-// PG_URL=postgres://user:pass@localhost:5432/postgres
-// migrate -database "postgres://postgres:123456@localhost:5432/server?sslmode=disable" -path migrations/users up
-// postgres://postgres:123456@localhost:5432/server
 
 func main() {
 	// загрузка переменных, подключение и отложенное закрытие базы данных
@@ -48,10 +45,12 @@ func main() {
 	if err != nil {
 		log.Error("Unable to open database:", err)
 	}
-	m, err := migrate.New("file://migrations", "postgres://postgres:123456@localhost:5432/server")
-	fmt.Println(err)
-	err = m.Up()
-	defer m.Close()
+
+	// migrate -database "postgres://postgres:123456@localhost:5432/server?sslmode=disable" -path migrations up
+	//m, err := migrate.New("file:///migrations", "postgres://postgres:123456@localhost:5432/server?sslmode=disable")
+	//fmt.Println(err)
+	//err = m.Up()
+	//defer m.Close()
 
 	defer func() {
 		err = db.Close()
