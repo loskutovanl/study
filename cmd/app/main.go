@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"net/http"
 	"os"
 	"study/config"
@@ -11,9 +13,8 @@ import (
 	"study/internal/usecase/repo"
 
 	"github.com/go-chi/chi/v5"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/jackc/pgx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
@@ -23,7 +24,7 @@ import (
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("../../.env"); err != nil {
 		log.Fatalf("No .env file found: %s", err)
 		os.Exit(1)
 	}
@@ -40,17 +41,25 @@ func main() {
 		user     = conf.User
 	)
 
-	psqlconn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-	db, err := sql.Open("postgres", psqlconn)
+	db, err := sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname))
 	if err != nil {
 		log.Error("Unable to open database:", err)
 	}
 
-	// migrate -database "postgres://postgres:123456@localhost:5432/server?sslmode=disable" -path migrations up
-	//m, err := migrate.New("file:///migrations", "postgres://postgres:123456@localhost:5432/server?sslmode=disable")
-	//fmt.Println(err)
-	//err = m.Up()
-	//defer m.Close()
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		log.Error("Unable to open driver postgres with instance", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://../../migrations",
+		"postgres", driver)
+	if err != nil {
+		log.Error("Unable to migrate database:", err)
+	}
+
+	m.Up()
+	defer m.Close()
 
 	defer func() {
 		err = db.Close()
