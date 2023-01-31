@@ -24,7 +24,7 @@ func New() *DatabaseConfig {
 
 // getEnv возвращает значение из переменных окружения или пустую строку в случае отсутствия значения
 func getEnv(key string) string {
-	if value, exists := os.LookupEnv(key); exists {
+	if value, exists := os.LookupEnv(key); exists{
 		return value
 	}
 	return ""

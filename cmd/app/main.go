@@ -1,5 +1,7 @@
 package main
 
+// docker-compose up --build
+
 import (
 	"database/sql"
 	"fmt"
@@ -24,7 +26,8 @@ import (
 func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 	log.SetLevel(log.InfoLevel)
-	if err := godotenv.Load("../../.env"); err != nil {
+	// "../../.env"
+	if err := godotenv.Load(); err != nil {
 		log.Fatalf("No .env file found: %s", err)
 		os.Exit(1)
 	}
@@ -51,8 +54,9 @@ func main() {
 		log.Error("Unable to open driver postgres with instance", err)
 	}
 
+	// "file://../../migrations"
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://../../migrations",
+		"file://migrations",
 		"postgres", driver)
 	if err != nil {
 		log.Error("Unable to migrate database:", err)
