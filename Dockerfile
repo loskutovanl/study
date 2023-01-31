@@ -1,14 +1,17 @@
-FROM golang:1.19.5-alpine3.16 as builder
-RUN apk add --no-cache ca-certificates && update-ca-certificates
-WORKDIR /app
-ADD go.mod .
-ADD go.sum .
+FROM golang:1.17.1-alpine3.14 as modules
+COPY go.mod go.sum /modules/
+WORKDIR /modules
 RUN go mod download
+
+FROM golang:1.17.1-alpine3.14 as builder
+COPY --from=modules /go/pkg /go/pkg
 COPY . /app
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o build/study github.com/loskutovanl/study
+WORKDIR /app
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags migrate -o /bin/app ./cmd/app
 
-
-FROM alpine
-COPY --from=builder /app/build/study /study
-EXPOSE 8080 8080
-ENTRYPOINT ["/study"]
+FROM scratch
+COPY --from=builder /app/config /config
+COPY --from=builder /app/migrations /migrations
+COPY --from=builder /bin/app /app
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+CMD ["/app"]
