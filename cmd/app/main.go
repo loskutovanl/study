@@ -37,14 +37,14 @@ func main() {
 	// загрузка переменных, подключение и отложенное закрытие базы данных
 	conf := config.New()
 	var (
-		host     = conf.Host
+		//host     = conf.Host
 		port     = conf.Port
 		password = conf.Password
 		dbname   = conf.Dbname
 		user     = conf.User
 	)
 
-	db, err := sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbname))
+	db, err := sql.Open("postgres", fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, "host.docker.internal", port, dbname))
 	if err != nil {
 		log.Error("Unable to open database:", err)
 	}
@@ -72,6 +72,7 @@ func main() {
 		}
 	}()
 
+	fmt.Println("Hello!")
 	// Use case
 	userUseCase := usecase.New(
 		repo.NewPostgreSQLClassicRepository(db),
