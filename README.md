@@ -1,8 +1,8 @@
-# HTTP-сервис
+# HTTP-service
 
-Принимает входящие соединения с JSON-данными и обрабатывает их.
+Handles incoming JSON
 
-1. Обработчик создания пользователя.
+1. Handler that creates user.
 
 ```
 POST /users/new HTTP/1.1
@@ -10,9 +10,9 @@ Content-Type: application/json; charset=utf-8
 Host: localhost:8080
 {"name":"some name","age":"24","friends":[]}
 ```
-Запрос возвращает ID пользователя в формате json и статус 201.
+The request returns user ID as JSON and 201 status code.
 
-2. Обработчик, который делает друзей из двух пользователей.
+2. Handler that makes two users friends.
 
 ```
 POST /users/befriend HTTP/1.1
@@ -20,9 +20,9 @@ Content-Type: application/json; charset=utf-8
 Host: localhost:8080
 {"source_id":"1","target_id":"2"}
 ```
-Запрос возвращает статус 200 и сообщение «username_1 и username_2 теперь друзья».
+The request returns 200 status code and message «username_1 и username_2 теперь друзья».
 
-3. Обработчик, который удаляет пользователя.
+3. Handler that deletes user.
 
 ```
 DELETE /users/delete HTTP/1.1
@@ -30,18 +30,18 @@ Content-Type: application/json; charset=utf-8
 Host: localhost:8080
 {"target_id":"1"}
 ```
-Запрос возвращает 200 и имя удалённого пользователя.
+The request returns 200 status code and the name of deleted user.
 
-4. Обработчик, который возвращает всех друзей пользователя.
+4. Handler that gets all friends of the user.
 
 ```
 GET /users/user_id/friends HTTP/1.1
 Host: localhost:8080
 Connection: close
 ```
-Запрос возвращает всех друзей пользователя с id = user_id в формате json.
+The request returns JSON of all friends of the user with id equal to user_id.
 
-5. Обработчик, который обновляет возраст пользователя.
+5. Handler that updates user age.
 
 ```
 PUT /users/user_id HTTP/1.1
@@ -49,4 +49,4 @@ Content-Type: application/json; charset=utf-8
 Host: localhost:8080
 {"new_age":"28"}
 ```
-Запрос возвращает 200 и сообщение «возраст пользователя успешно обновлён».
+The request returns 200 status code and message «возраст пользователя успешно обновлён».
